@@ -1,0 +1,24 @@
+{
+  "name": "pi-codex-runway",
+  "version": "1.0.0",
+  "description": "Adaptive workday-based Codex weekly quota forecasting for Pi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Narqulie/pi-codex-runway.git"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "codex",
+    "usage",
+    "quota",
+    "runway"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}
