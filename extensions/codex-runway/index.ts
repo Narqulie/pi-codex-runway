@@ -64,7 +64,7 @@ export default function codexRunway(pi: ExtensionAPI) {
     const color = data.health === "SLOW DOWN" ? "error" : data.health === "TAKE CARE" || data.health === "ON BUDGET" ? "warning" : data.health === "INSUFFICIENT DATA" ? "muted" : "success";
     const compact = data.health === "INSUFFICIENT DATA"
       ? `CODEX RUNWAY learning · ${pct(data.spentTodayPct)} today`
-      : `CODEX RUNWAY ${data.health} · ${ratio(data.paceRatio)} pace · ${pct(data.projectedRemainingAtReset)} proj`;
+      : `CODEX RUNWAY ${data.health} · ${ratio(data.paceRatio)} pace · ${pct(data.projectedRemainingAtReset)} @ reset`;
     context.ui.setStatus(STATUS_KEY, context.ui.theme.fg(color, compact));
   }
   async function refresh(signal?: AbortSignal): Promise<CodexUsageSnapshot | null> {

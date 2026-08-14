@@ -1,6 +1,6 @@
 {
   "name": "pi-codex-runway",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Adaptive workday-based Codex weekly quota forecasting for Pi",
   "license": "MIT",
   "repository": {
@@ -19,6 +19,8 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": [
+      "./extensions"
+    ]
   }
 }
