@@ -1,4 +1,4 @@
-import type { AccountingPeriod, CodexModel, CodexUsageSnapshot, Confidence, DailyUsage, Forecast, ForecastStatus, RunwayConfig, RunwayHealth, RunwayStore } from "./types";
+import type { AccountingPeriod, CodexModel, CodexUsageSnapshot, Confidence, DailyUsage, Forecast, ForecastHistoryEntry, ForecastStatus, RunwayConfig, RunwayHealth, RunwayStore } from "./types";
 
 export const DEFAULT_CONFIG: RunwayConfig = {
   reservePct: 10,
@@ -59,7 +59,7 @@ export function applySnapshot(store: RunwayStore, raw: CodexUsageSnapshot): { re
   const duplicate = previous && previous.remainingPct === snapshot.remainingPct
     && previous.fetchedAt === snapshot.fetchedAt;
   const snapshots = reset ? [snapshot] : [...(store.snapshots ?? []), ...(duplicate ? [] : [snapshot])].slice(-5_500);
-  return { reset, store: { ...store, version: 2, currentPeriod: period, lastSnapshot: snapshot, snapshots } };
+  return { reset, store: { ...store, version: 3, currentPeriod: period, lastSnapshot: snapshot, snapshots } };
 }
 
 export function ewma(values: number[], alpha = DEFAULT_CONFIG.ewmaAlpha): number | undefined {
@@ -157,9 +157,33 @@ export function calculateForecast(store: RunwayStore, now = new Date()): Forecas
     status: statusFor(projected), health, confidence, dailyUsage: buckets, samples: rates.length, snapshotAgeMinutes: age };
 }
 
-export function emptyStore(): RunwayStore { return { version: 2, observations: [], snapshots: [] }; }
+const FORECAST_HEARTBEAT_MS = 30 * 60_000;
+const MAX_FORECAST_HISTORY = 20_000;
+
+/** Persist a compact audit trail without duplicating every two-minute raw snapshot. */
+export function appendForecastHistory(store: RunwayStore, forecast: Forecast, now = new Date()): RunwayStore {
+  const history = store.forecastHistory ?? [];
+  const previous = history.at(-1);
+  const quotaChanged = previous?.remainingPct !== forecast.currentRemainingPct;
+  const statusChanged = previous?.health !== forecast.health || previous?.confidence !== forecast.confidence;
+  const elapsed = previous ? now.getTime() - new Date(previous.timestamp).getTime() : Infinity;
+  if (previous && !quotaChanged && !statusChanged && elapsed < FORECAST_HEARTBEAT_MS) return store;
+  const reason: ForecastHistoryEntry["reason"] = !previous ? "initial" : statusChanged ? "status-change" : quotaChanged ? "quota-change" : "heartbeat";
+  const entry: ForecastHistoryEntry = {
+    timestamp: now.toISOString(), accountingPeriodId: store.currentPeriod?.id,
+    remainingPct: forecast.currentRemainingPct, resetTimestamp: forecast.resetTimestamp,
+    spentTodayPct: forecast.spentTodayPct, burnPerWorkday: forecast.burnPerWorkday,
+    sustainableBurnPerWorkday: forecast.sustainableBurnPerWorkday, paceRatio: forecast.paceRatio,
+    projectedRemainingAtReset: forecast.projectedRemainingAtReset, runwayRatio: forecast.runwayRatio,
+    health: forecast.health, confidence: forecast.confidence, samples: forecast.samples,
+    snapshotAgeMinutes: forecast.snapshotAgeMinutes, reason,
+  };
+  return { ...store, version: 3, forecastHistory: [...history, entry].slice(-MAX_FORECAST_HISTORY) };
+}
+
+export function emptyStore(): RunwayStore { return { version: 3, observations: [], snapshots: [], forecastHistory: [] }; }
 export function migrateStore(store: RunwayStore): RunwayStore {
-  if (store.version === 2) return { ...store, snapshots: store.snapshots ?? (store.lastSnapshot ? [store.lastSnapshot] : []) };
-  return { ...store, version: 2, snapshots: store.lastSnapshot ? [store.lastSnapshot] : [] };
+  if (store.version === 3) return { ...store, snapshots: store.snapshots ?? (store.lastSnapshot ? [store.lastSnapshot] : []), forecastHistory: store.forecastHistory ?? [] };
+  return { ...store, version: 3, snapshots: store.snapshots ?? (store.lastSnapshot ? [store.lastSnapshot] : []), forecastHistory: [] };
 }
 export function formatDuration(ms: number): string { const sec = Math.max(0, Math.floor(ms / 1000)); const d = Math.floor(sec / 86400); const h = Math.floor(sec % 86400 / 3600); const m = Math.floor(sec % 3600 / 60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_CONFIG, applySnapshot, calculateForecast, dailyUsage, emptyStore, isQuotaReset, remainingWork } from "../core";
+import { DEFAULT_CONFIG, appendForecastHistory, applySnapshot, calculateForecast, dailyUsage, emptyStore, isQuotaReset, remainingWork } from "../core";
 import type { CodexUsageSnapshot, RunwayStore } from "../types";
 
 const local = (day: number, hour: number, minute = 0) => new Date(2025, 0, day, hour, minute);
@@ -63,6 +63,18 @@ test("runway health drives take-care and slow-down thresholds", () => {
   store = storeWith(snap(100, local(6, 9), reset), snap(80, local(6, 16), reset), snap(80, local(7, 9), reset), snap(60, local(7, 16), reset), snap(60, local(8, 9), reset), snap(60, local(8, 12), reset));
   result = calculateForecast(store, local(8, 12))!;
   assert.equal(result.health, "SLOW DOWN");
+});
+
+test("forecast history records quota and status changes but suppresses duplicate polls", () => {
+  let store = storeWith(snap(90, local(6, 9)), snap(86, local(6, 16)), snap(86, local(7, 9)), snap(82, local(7, 16)), snap(82, local(8, 9)), snap(82, local(8, 12)));
+  const forecast = calculateForecast(store, local(8, 12))!;
+  store = appendForecastHistory(store, forecast, local(8, 12));
+  assert.equal(store.forecastHistory!.length, 1);
+  store = appendForecastHistory(store, forecast, local(8, 12, 10));
+  assert.equal(store.forecastHistory!.length, 1);
+  store = appendForecastHistory(store, forecast, local(8, 43));
+  assert.equal(store.forecastHistory!.length, 2);
+  assert.equal(store.forecastHistory![1]!.reason, "heartbeat");
 });
 
 test("stale snapshots cannot drive alerts", () => {

@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { applySnapshot, calculateForecast, emptyStore, formatDuration, migrateStore, normalizeModel, resolvedConfig } from "./core";
+import { appendForecastHistory, applySnapshot, calculateForecast, emptyStore, formatDuration, migrateStore, normalizeModel, resolvedConfig } from "./core";
 import { FallbackUsageSource, WhamUsageSource } from "./sources";
 import type { CodexModel, CodexUsageSnapshot, Forecast, RunwayStore } from "./types";
 
@@ -74,6 +74,8 @@ export default function codexRunway(pi: ExtensionAPI) {
       sourceIssue = undefined;
       const snapshot = activeAgentModel ? { ...raw, activeModel: activeAgentModel } : raw;
       store = applySnapshot(store, snapshot).store;
+      const data = forecast();
+      if (data) store = appendForecastHistory(store, data);
       await writeStore(store); updateUi(); return snapshot;
     }).catch((error) => { sourceIssue = error instanceof Error ? error.message.replace(/^codex-wham:\s*/i, "") : "quota source failed"; updateUi(); return null; })
       .finally(() => { refreshInFlight = undefined; });
@@ -106,10 +108,16 @@ export default function codexRunway(pi: ExtensionAPI) {
     return { action: "continue" as const };
   });
 
-  pi.registerCommand("codex-runway", { description: "Show or configure workday Codex runway (/codex-runway [refresh|reserve <pct>|clear])", handler: async (args, ctx) => {
+  pi.registerCommand("codex-runway", { description: "Show/configure Codex runway (/codex-runway [refresh|history|reserve <pct>|clear])", handler: async (args, ctx) => {
     context = ctx; const [command, raw] = args.trim().split(/\s+/, 2);
     if (command === "refresh") await refresh();
-    else if (command === "reserve") { const reservePct = Number(raw); if (!Number.isFinite(reservePct) || reservePct < 0 || reservePct >= 100) { ctx.ui.notify("Reserve must be 0–99.9%.", "error"); return; } store = { ...store, config: { ...store.config, reservePct } }; await writeStore(store); }
+    else if (command === "history") {
+      const lines = (store.forecastHistory ?? []).slice(-8).reverse().map((entry) =>
+        `${new Date(entry.timestamp).toLocaleString()} · ${entry.health} · ${ratio(entry.paceRatio)} pace · ${pct(entry.projectedRemainingAtReset)} @ reset · ${entry.reason}`,
+      );
+      if (ctx.hasUI) { ctx.ui.setWidget(WIDGET_KEY, ["CODEX RUNWAY HISTORY", ...(lines.length ? lines : ["No forecast records yet."])].map((line) => ctx.ui.theme.fg("muted", line))); ctx.ui.notify(lines.length ? lines.join("\n") : "No forecast records yet.", "info"); }
+      return;
+    } else if (command === "reserve") { const reservePct = Number(raw); if (!Number.isFinite(reservePct) || reservePct < 0 || reservePct >= 100) { ctx.ui.notify("Reserve must be 0–99.9%.", "error"); return; } store = { ...store, config: { ...store.config, reservePct } }; await writeStore(store); }
     else if (command === "clear") { store = { ...emptyStore(), config: store.config }; await writeStore(store); await refresh(); }
     const lines = formatDashboard(forecast()); updateUi(); if (ctx.hasUI) { ctx.ui.setWidget(WIDGET_KEY, lines.map((line) => ctx.ui.theme.fg(line.startsWith("Action:") ? "accent" : "muted", line))); ctx.ui.notify(lines.join(" · "), "info"); }
   }});

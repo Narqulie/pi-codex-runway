@@ -59,13 +59,34 @@ export interface RunwayConfig {
   staleSnapshotMinutes: number;
 }
 
+/** A compact audit record of what the extension advised at a point in time. */
+export interface ForecastHistoryEntry {
+  timestamp: string;
+  accountingPeriodId?: string;
+  remainingPct: number;
+  resetTimestamp: string;
+  spentTodayPct: number;
+  burnPerWorkday?: number;
+  sustainableBurnPerWorkday: number;
+  paceRatio?: number;
+  projectedRemainingAtReset?: number;
+  runwayRatio?: number;
+  health: RunwayHealth;
+  confidence: Confidence;
+  samples: number;
+  snapshotAgeMinutes: number;
+  reason: "initial" | "heartbeat" | "quota-change" | "status-change";
+}
+
 export interface RunwayStore {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   config?: Partial<RunwayConfig>;
   currentPeriod?: AccountingPeriod;
   lastSnapshot?: CodexUsageSnapshot;
   /** Chronological quota history; contains heartbeat polls and percentage changes. */
   snapshots?: CodexUsageSnapshot[];
+  /** Compact decision history: status changes, quota changes, and 30-minute heartbeats. */
+  forecastHistory?: ForecastHistoryEntry[];
   /** v1 records retained rather than discarded during migration. */
   observations: UsageObservation[];
 }

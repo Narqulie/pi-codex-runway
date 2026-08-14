@@ -4,7 +4,7 @@ An adaptive, workday-based Codex weekly quota forecast for [Pi](https://github.c
 
 It uses your own Codex quota percentage and reset time to answer: **at my current Monday–Friday pace, do I need to take care or slow down before reset?**
 
-- Persists a local quota timeline from two-minute WHAM polls.
+- Persists a local quota timeline from two-minute WHAM polls plus a compact forecast/alert decision history.
 - Derives daily percentage burn, not token-price assumptions or model-response minutes.
 - Calculates pace versus sustainable pace through the weekly reset.
 - Advises `FREE`, `HEALTHY`, `ON BUDGET`, `TAKE CARE`, or `SLOW DOWN`.
@@ -26,6 +26,7 @@ Restart Pi or run `/reload` after installation.
 ```text
 /codex-runway
 /codex-runway refresh
+/codex-runway history
 /codex-runway reserve 15
 /codex-runway clear
 ```
