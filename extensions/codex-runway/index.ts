@@ -26,6 +26,7 @@ async function writeStore(store: RunwayStore, path = STORE_PATH) {
   await rename(temporary, path);
 }
 const pct = (value: number | undefined) => value == null ? "—" : `${value.toFixed(1)}%`;
+const usedPct = (remainingPct: number | undefined) => pct(remainingPct == null ? undefined : 100 - remainingPct);
 const ratio = (value: number | undefined) => value == null || !Number.isFinite(value) ? "—" : `${value.toFixed(2)}x`;
 
 export function formatDashboard(forecast: Forecast | null, now = new Date()): string[] {
@@ -39,7 +40,7 @@ export function formatDashboard(forecast: Forecast | null, now = new Date()): st
     `Weekly: ${pct(forecast.currentRemainingPct)} left · reset ${formatDuration(resetMs)} · reserve ${pct(forecast.reservePct)}`,
     `Today: ${pct(forecast.spentTodayPct)} used · ${pct(forecast.nominalTodayBudget)} advisory remaining`,
     `Pace: ${pct(forecast.burnPerWorkday)} / workday · sustainable ${pct(forecast.sustainableBurnPerWorkday)} / workday`,
-    `Expected at reset: ${pct(forecast.projectedRemainingAtReset)} left · runway ${ratio(forecast.runwayRatio)}`,
+    `Expected at reset: ${usedPct(forecast.projectedRemainingAtReset)} used · runway ${ratio(forecast.runwayRatio)}`,
     `Action: ${action} · confidence ${forecast.confidence}${forecast.snapshotAgeMinutes > 10 ? ` · data ${Math.round(forecast.snapshotAgeMinutes)}m old` : ""}`,
   ];
 }
@@ -64,7 +65,7 @@ export default function codexRunway(pi: ExtensionAPI) {
     const color = data.health === "SLOW DOWN" ? "error" : data.health === "TAKE CARE" || data.health === "ON BUDGET" ? "warning" : data.health === "INSUFFICIENT DATA" ? "muted" : "success";
     const compact = data.health === "INSUFFICIENT DATA"
       ? `CODEX RUNWAY learning · ${pct(data.spentTodayPct)} today`
-      : `CODEX RUNWAY ${data.health} · ${ratio(data.paceRatio)} pace · ${pct(data.projectedRemainingAtReset)} expected @ reset`;
+      : `CODEX RUNWAY ${data.health} · ${ratio(data.paceRatio)} pace · ${usedPct(data.projectedRemainingAtReset)} expected used @ reset`;
     context.ui.setStatus(STATUS_KEY, context.ui.theme.fg(color, compact));
   }
   async function refresh(signal?: AbortSignal): Promise<CodexUsageSnapshot | null> {
