@@ -39,7 +39,7 @@ export function formatDashboard(forecast: Forecast | null, now = new Date()): st
     `Weekly: ${pct(forecast.currentRemainingPct)} left · reset ${formatDuration(resetMs)} · reserve ${pct(forecast.reservePct)}`,
     `Today: ${pct(forecast.spentTodayPct)} used · ${pct(forecast.nominalTodayBudget)} advisory remaining`,
     `Pace: ${pct(forecast.burnPerWorkday)} / workday · sustainable ${pct(forecast.sustainableBurnPerWorkday)} / workday`,
-    `Projected: ${pct(forecast.projectedRemainingAtReset)} left · runway ${ratio(forecast.runwayRatio)}`,
+    `Expected at reset: ${pct(forecast.projectedRemainingAtReset)} left · runway ${ratio(forecast.runwayRatio)}`,
     `Action: ${action} · confidence ${forecast.confidence}${forecast.snapshotAgeMinutes > 10 ? ` · data ${Math.round(forecast.snapshotAgeMinutes)}m old` : ""}`,
   ];
 }
@@ -64,7 +64,7 @@ export default function codexRunway(pi: ExtensionAPI) {
     const color = data.health === "SLOW DOWN" ? "error" : data.health === "TAKE CARE" || data.health === "ON BUDGET" ? "warning" : data.health === "INSUFFICIENT DATA" ? "muted" : "success";
     const compact = data.health === "INSUFFICIENT DATA"
       ? `CODEX RUNWAY learning · ${pct(data.spentTodayPct)} today`
-      : `CODEX RUNWAY ${data.health} · ${ratio(data.paceRatio)} pace · ${pct(data.projectedRemainingAtReset)} @ reset`;
+      : `CODEX RUNWAY ${data.health} · ${ratio(data.paceRatio)} pace · ${pct(data.projectedRemainingAtReset)} expected @ reset`;
     context.ui.setStatus(STATUS_KEY, context.ui.theme.fg(color, compact));
   }
   async function refresh(signal?: AbortSignal): Promise<CodexUsageSnapshot | null> {
