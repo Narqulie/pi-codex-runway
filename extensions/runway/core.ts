@@ -1,4 +1,4 @@
-import type { AccountingPeriod, CodexModel, CodexUsageSnapshot, Confidence, DailyUsage, Forecast, ForecastHistoryEntry, ForecastStatus, RunwayConfig, RunwayHealth, RunwayStore } from "./types";
+import type { AccountingPeriod, CodexModel, WeeklyUsageSnapshot, Confidence, DailyUsage, Forecast, ForecastHistoryEntry, ForecastStatus, RunwayConfig, RunwayHealth, RunwayStore } from "./types";
 
 export const DEFAULT_CONFIG: RunwayConfig = {
   reservePct: 10,
@@ -7,7 +7,7 @@ export const DEFAULT_CONFIG: RunwayConfig = {
   weekdayWeights: [0, 1, 1, 1, 1, 1, 0],
   workdayStartHour: 9,
   workdayEndHour: 16,
-  expensiveModelPattern: "(?:sol|fast)",
+  expensiveModelPattern: "(?:sol|astra)",
   minimumForecastSamples: 2,
   staleSnapshotMinutes: 10,
 };
@@ -16,6 +16,7 @@ export const resolvedConfig = (config?: Partial<RunwayConfig>): RunwayConfig => 
 export const clampPct = (value: number) => Math.max(0, Math.min(100, value));
 export function normalizeModel(model?: string | null): CodexModel {
   const value = (model ?? "").toLowerCase();
+  if (value.includes("astra")) return "Astra";
   if (value.includes("sol")) return "Sol";
   if (value.includes("terra")) return "Terra";
   if (value.includes("luna")) return "Luna";
@@ -33,14 +34,14 @@ const midnight = (date: Date) => new Date(date.getFullYear(), date.getMonth(), d
 const addDays = (date: Date, days: number) => { const copy = new Date(date); copy.setDate(copy.getDate() + days); return copy; };
 
 /** Stable despite WHAM's reconstructed reset instant jittering by milliseconds. */
-function periodId(snapshot: CodexUsageSnapshot): string {
+function periodId(snapshot: WeeklyUsageSnapshot): string {
   const reset = parseDate(snapshot.resetTimestamp)?.getTime() ?? Date.now();
   return `period-${Math.round(reset / 3_600_000)}`;
 }
-export function newPeriod(snapshot: CodexUsageSnapshot): AccountingPeriod {
+export function newPeriod(snapshot: WeeklyUsageSnapshot): AccountingPeriod {
   return { id: periodId(snapshot), resetTimestamp: snapshot.resetTimestamp, startedAt: snapshot.fetchedAt, openingRemainingPct: snapshot.remainingPct };
 }
-export function isQuotaReset(previous: CodexUsageSnapshot | undefined, next: CodexUsageSnapshot): boolean {
+export function isQuotaReset(previous: WeeklyUsageSnapshot | undefined, next: WeeklyUsageSnapshot): boolean {
   if (!previous) return false;
   const oldReset = parseDate(previous.resetTimestamp)?.getTime();
   const newReset = parseDate(next.resetTimestamp)?.getTime();
@@ -50,7 +51,7 @@ export function isQuotaReset(previous: CodexUsageSnapshot | undefined, next: Cod
 }
 
 /** Persist every heartbeat/change. This is the authoritative history, not agent duration. */
-export function applySnapshot(store: RunwayStore, raw: CodexUsageSnapshot): { reset: boolean; store: RunwayStore } {
+export function applySnapshot(store: RunwayStore, raw: WeeklyUsageSnapshot): { reset: boolean; store: RunwayStore } {
   const reset = !store.currentPeriod || isQuotaReset(store.lastSnapshot, raw);
   const period = reset ? newPeriod(raw) : store.currentPeriod!;
   const snapshot = { ...raw };
@@ -86,8 +87,8 @@ export function remainingWork(now: Date, reset: Date, config: RunwayConfig) {
 }
 
 /** Derive daily percentage buckets from quota snapshots, including external/unattributed activity. */
-export function dailyUsage(snapshots: CodexUsageSnapshot[], now: Date, config: RunwayConfig): DailyUsage[] {
-  const groups = new Map<string, CodexUsageSnapshot[]>();
+export function dailyUsage(snapshots: WeeklyUsageSnapshot[], now: Date, config: RunwayConfig): DailyUsage[] {
+  const groups = new Map<string, WeeklyUsageSnapshot[]>();
   for (const snapshot of snapshots) {
     const date = parseDate(snapshot.fetchedAt); if (!date) continue;
     const key = dateKey(date); const group = groups.get(key) ?? []; group.push(snapshot); groups.set(key, group);

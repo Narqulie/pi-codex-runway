@@ -1,8 +1,12 @@
 {
-  "name": "pi-codex-runway",
-  "version": "1.0.4",
-  "description": "Adaptive workday-based Codex weekly quota forecasting for Pi",
+  "name": "pi-runway",
+  "version": "1.2.0",
+  "type": "module",
+  "description": "Quota forecasts, task receipts and opt-in Claude/Codex provider protection for Pi",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Narqulie/pi-codex-runway.git"
@@ -15,12 +19,22 @@
     "quota",
     "runway"
   ],
+  "scripts": {
+    "test": "tsx --test extensions/runway/test/*.test.ts",
+    "test:pi": "tsx --test extensions/runway/test/provider-pi.probe.ts"
+  },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*"
   },
   "pi": {
     "extensions": [
-      "./extensions"
+      "./extensions/runway/index.ts"
     ]
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "1.1.0",
+    "tsx": "^4.23.15"
   }
 }

@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_CONFIG, appendForecastHistory, applySnapshot, calculateForecast, dailyUsage, emptyStore, isQuotaReset, remainingWork } from "../core";
-import type { CodexUsageSnapshot, RunwayStore } from "../types";
+import { DEFAULT_CONFIG, appendForecastHistory, applySnapshot, calculateForecast, dailyUsage, emptyStore, isQuotaReset, normalizeModel, remainingWork } from "../core";
+import type { WeeklyUsageSnapshot, RunwayStore } from "../types";
 
-const local = (day: number, hour: number, minute = 0) => new Date(2025, 0, day, hour, minute);
-const snap = (remainingPct: number, at: Date, reset = local(13, 16)): CodexUsageSnapshot => ({ remainingPct, resetTimestamp: reset.toISOString(), fetchedAt: at.toISOString(), source: "test" });
-function storeWith(...snapshots: CodexUsageSnapshot[]): RunwayStore { return snapshots.reduce((store, s) => applySnapshot(store, s).store, emptyStore()); }
+const local = (day: number, hour: number, minute = 0, second = 0) => new Date(2025, 0, day, hour, minute, second);
+const snap = (remainingPct: number, at: Date, reset = local(13, 16)): WeeklyUsageSnapshot => ({ remainingPct, resetTimestamp: reset.toISOString(), fetchedAt: at.toISOString(), source: "test" });
+function storeWith(...snapshots: WeeklyUsageSnapshot[]): RunwayStore { return snapshots.reduce((store, s) => applySnapshot(store, s).store, emptyStore()); }
+
+test("recognizes Astra and gates both Sol and Astra as expensive interactive models", () => {
+  const expensive = new RegExp(DEFAULT_CONFIG.expensiveModelPattern, "i");
+  assert.equal(normalizeModel("gpt-6-astra"), "Astra");
+  assert.equal(normalizeModel("gpt-6-sol"), "Sol");
+  for (const id of ["gpt-6-astra", "gpt-6-sol", "gpt-5.6-sol"]) assert.equal(expensive.test(id), true);
+  for (const id of ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.3-codex-spark"]) assert.equal(expensive.test(id), false);
+});
 
 test("strict five-day plan assigns zero weekend work", () => {
   const work = remainingWork(local(11, 12), local(13, 12), DEFAULT_CONFIG); // Sat noon → Mon noon

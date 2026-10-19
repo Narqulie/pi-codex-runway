@@ -1,16 +1,18 @@
-export type CodexModel = "Sol" | "Terra" | "Luna" | "Spark" | "Other";
+export type CodexModel = "Astra" | "Sol" | "Terra" | "Luna" | "Spark" | "Other";
 export type ForecastStatus = "FREE" | "ON TRACK" | "TIGHT" | "OVER BUDGET" | "INSUFFICIENT DATA";
 export type RunwayHealth = "FREE" | "HEALTHY" | "ON BUDGET" | "TAKE CARE" | "SLOW DOWN" | "INSUFFICIENT DATA";
 export type Confidence = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT";
 
-/** A single authoritative quota reading. Percentages are whole-number WHAM values. */
-export interface CodexUsageSnapshot {
+/** A known all-model weekly reading, bound to its provider subscription. */
+export interface WeeklyUsageSnapshot {
   remainingPct: number;
   resetTimestamp: string;
   fetchedAt: string;
   source: string;
+  /** Present only for observations captured with a stable account binding. Legacy readings stay unbound. */
+  account?: import("./quota").AccountBinding;
   /** Model active when the reading was captured, if Pi knows it. */
-  activeModel?: CodexModel;
+  activeModel?: string;
 }
 
 /** Retained for migration and secondary model diagnostics from the v1 extension. */
@@ -82,9 +84,9 @@ export interface RunwayStore {
   version: 1 | 2 | 3;
   config?: Partial<RunwayConfig>;
   currentPeriod?: AccountingPeriod;
-  lastSnapshot?: CodexUsageSnapshot;
+  lastSnapshot?: WeeklyUsageSnapshot;
   /** Chronological quota history; contains heartbeat polls and percentage changes. */
-  snapshots?: CodexUsageSnapshot[];
+  snapshots?: WeeklyUsageSnapshot[];
   /** Compact decision history: status changes, quota changes, and 30-minute heartbeats. */
   forecastHistory?: ForecastHistoryEntry[];
   /** v1 records retained rather than discarded during migration. */
@@ -117,7 +119,7 @@ export interface Forecast {
   snapshotAgeMinutes: number;
 }
 
-export interface CodexUsageSource {
+export interface WeeklyUsageSource {
   readonly name: string;
-  getUsage(signal?: AbortSignal): Promise<CodexUsageSnapshot | null>;
+  getUsage(signal?: AbortSignal): Promise<WeeklyUsageSnapshot | null>;
 }
